@@ -1,0 +1,11 @@
+Maya: Okay, quick vendor review. The Acme data-processing agreement expires at the end of the month.
+Raj: I'll send the renewal contract to legal by Friday.
+Maya: Great. We also need to renew the SOC 2 report before the customer audit.
+Priya: Hmm, we should get that scheduled.
+Maya: Priya, can you draft the GDPR consent update for the signup page?
+Priya: Yes, on it.
+Raj: I'll try to update the incident response policy next week, maybe.
+Maya: And Leo will book the security review with the auditors on November 4th.
+Leo: Sure. I'll also share the pen test findings with Maya tomorrow.
+Maya: Someone needs to pay the Q3 invoice to Acme, it's already late.
+Raj: Let me check with finance.

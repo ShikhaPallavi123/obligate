@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Obligate Voice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14181f;--muted:#5d6672;--line:#e3e1db;--paper:#faf8f4;--card:#fff;--accent:#1f4fd1;--accent-ink:#fff;
+--ring:#11c5d9;--high:#c2341d;--you:#eef2fd;--tool:#f3f1ec}
+@media (prefers-color-scheme:dark){:root{--ink:#eceae5;--muted:#9aa2ad;--line:#2c3037;--paper:#121417;--card:#1a1d21;
+--accent:#7ea1ff;--accent-ink:#0d1220;--you:#1c2438;--tool:#202329}}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "Inter",system-ui,sans-serif;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);height:100vh}
+@media (max-width:900px){body{grid-template-columns:1fr;height:auto}iframe{height:70vh}}
+.left{display:flex;flex-direction:column;border-right:1px solid var(--line);min-height:0}
+header{padding:20px 24px 12px;display:flex;align-items:baseline;gap:12px}
+h1{font:700 24px/1 "Fraunces",Georgia,serif;margin:0}h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:13px}
+.log{flex:1;overflow-y:auto;padding:8px 24px 16px;display:flex;flex-direction:column;gap:10px;min-height:200px}
+.msg{max-width:88%;padding:10px 14px;border-radius:14px;white-space:pre-wrap}
+.you{align-self:flex-end;background:var(--you);border-bottom-right-radius:4px}
+.alexa{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.meet{align-self:stretch;background:transparent;color:var(--muted);font-size:13px;padding:2px 0}
+.meet b{color:var(--ink)}
+.tool{align-self:flex-start;font:12px ui-monospace,Menlo,monospace;color:var(--muted);background:var(--tool);border-radius:6px;padding:3px 8px}
+.controls{border-top:1px solid var(--line);padding:16px 24px 20px;display:flex;flex-direction:column;gap:12px}
+.orbrow{display:flex;align-items:center;gap:16px}
+.orb{width:64px;height:64px;border-radius:50%;border:none;cursor:pointer;background:var(--accent);color:var(--accent-ink);
+font-size:26px;display:grid;place-items:center;flex:none;transition:box-shadow .2s}
+.orb.listening{box-shadow:0 0 0 6px color-mix(in srgb,var(--ring) 45%,transparent),0 0 24px var(--ring);background:var(--ring)}
+.orb.speaking{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 30%,transparent)}
+.hint{color:var(--muted);font-size:13px}
+form{display:flex;gap:8px}
+input{flex:1;font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+button.s{font:600 13px Inter,sans-serif;padding:8px 12px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.s:hover{border-color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+iframe{border:0;width:100%;height:100vh;background:var(--paper)}
+</style>
+</head>
+<body>
+<section class="left">
+  <header><h1>Obligate<span>.</span></h1><div class="sub">Alexa+ voice simulation · talks to the MCP server at <code>/mcp</code></div></header>
+  <div class="log" id="log"></div>
+  <div class="controls">
+    <div class="orbrow">
+      <button class="orb" id="orb" title="Hold to talk (or press space)" aria-label="Talk">🎙</button>
+      <div class="hint" id="hint">Tap and speak, or type below. Try “What could go wrong?”</div>
+    </div>
+    <form id="f"><input id="q" placeholder="Ask Obligate…" autocomplete="off"><button class="s">Send</button></form>
+    <div class="chips">
+      <button class="s" data-play>▶ Play sample meeting</button>
+      <button class="s" data-say="Wrap up the meeting">Wrap up the meeting</button>
+      <button class="s" data-say="What could go wrong?">What could go wrong?</button>
+      <button class="s" data-say="Give the SOC 2 report to Priya by November 14">Assign SOC 2 → Priya</button>
+      <button class="s" data-say="Give me Raj's briefing">Raj's briefing</button>
+      <button class="s" data-say="Raj sent the renewal contract to legal">Mark done</button>
+      <button class="s" data-say="Remind me I promised Dana the signed NDA by Monday">Add a promise</button>
+      <button class="s" data-reset>Reset demo</button>
+    </div>
+  </div>
+</section>
+<iframe src="/" title="Obligate dashboard"></iframe>
+<script>
+const MCP = "/mcp", ME = "Maya";
+let session = null, rpcId = 0, meetingText = "", speaking = false;
+const $ = s => document.querySelector(s), log = $("#log"), orb = $("#orb");
+
+function add(cls, html){ const d = document.createElement("div"); d.className = "msg " + cls; d.innerHTML = html; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
+const esc = s => s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+async function rpc(method, params){
+  const headers = {"Content-Type":"application/json","Accept":"application/json, text/event-stream","MCP-Protocol-Version":"2025-11-25"};
+  if (session) headers["Mcp-Session-Id"] = session;
+  const r = await fetch(MCP, {method:"POST", headers, body: JSON.stringify({jsonrpc:"2.0", id: ++rpcId, method, params})});
+  session = r.headers.get("mcp-session-id") || session;
+  const text = await r.text();
+  const line = text.split("\n").filter(l => l.startsWith("data:")).map(l => l.slice(5)).pop() || text;
+  const msg = JSON.parse(line);
+  if (msg.error) throw new Error(msg.error.message);
+  return msg.result;
+}
+async function connect(){
+  await rpc("initialize", {protocolVersion:"2025-11-25", capabilities:{}, clientInfo:{name:"obligate-voice-sim", version:"1.0"}});
+  await fetch(MCP, {method:"POST", headers:{"Content-Type":"application/json","Accept":"application/json, text/event-stream","Mcp-Session-Id":session,"MCP-Protocol-Version":"2025-11-25"}, body: JSON.stringify({jsonrpc:"2.0", method:"notifications/initialized"})});
+  const tools = await rpc("tools/list", {});
+  add("tool", `connected · ${tools.tools.length} tools: ${tools.tools.map(t=>t.name).join(", ")}`);
+}
+async function callTool(name, args){
+  add("tool", `→ ${name}(${Object.entries(args).filter(([k])=>k!=="transcript").map(([k,v])=>`${k}: ${JSON.stringify(v)}`).join(", ")})`);
+  const res = await rpc("tools/call", {name, arguments: args});
+  const data = res.structuredContent?.result ?? res.structuredContent ?? JSON.parse(res.content[0].text);
+  return data;
+}
+
+function say(text){
+  add("alexa", esc(text));
+  if (!("speechSynthesis" in window)) return Promise.resolve();
+  return new Promise(res => {
+    const u = new SpeechSynthesisUtterance(text); u.rate = 1.05;
+    const v = speechSynthesis.getVoices().find(v => /Samantha|Joanna|Google US English|Aria|Jenny/i.test(v.name)); if (v) u.voice = v;
+    orb.classList.add("speaking"); u.onend = u.onerror = () => { orb.classList.remove("speaking"); res(); };
+    speechSynthesis.speak(u);
+  });
+}
+
+// --- intent routing: maps what you say to an MCP tool call (Alexa+ does this with its LLM) ---
+const DUE = /\b(?:by|on|before|due)\s+(.+?)$/i;
+function cleanName(s){ return s ? s.replace(/'s$/i,"").replace(/^(the|my)\s+/i,"").trim() : s; }
+async function handle(text){
+  const t = text.trim().replace(/^(alexa|hey alexa)[,]?\s*/i, ""); if (!t) return;
+  add("you", esc(text));
+  let m;
+  try {
+    if (/\b(wrap up|capture|process|summari[sz]e)\b.*\bmeeting\b|\bmeeting\b.*\b(wrap|capture|done|over)\b/i.test(t)) {
+      if (!meetingText) return say("I don't have a meeting yet. Play the sample meeting or paste a transcript first.");
+      const d = await callTool("capture_meeting", {transcript: meetingText, meeting_title: "the vendor review"});
+      return say(d.speech);
+    }
+    if (/\b(go wrong|risk|risky|worr|danger|slip)/i.test(t)) return say((await callTool("risk_report", {})).speech);
+    if (/\b(no owner|unowned|nobody owns|no one owns|unassigned)\b/i.test(t)) return say((await callTool("list_obligations", {owner:"nobody"})).speech);
+    if ((m = t.match(/\b(?:briefing|morning)\b/i))) {
+      const who = (t.match(/\b([A-Z][a-z]+)'s\b/) || t.match(/\bfor ([A-Z][a-z]+)\b/) || [])[1] || (/\bmy\b/i.test(t) ? ME : null);
+      return say((await callTool("briefing", who ? {owner: who} : {})).speech);
+    }
+    if ((m = t.match(/^(?:give|assign|hand)\s+(?:the\s+)?(.+?)\s+to\s+([A-Z][a-z]+)(?:\s+(?:by|for|due)\s+(.+))?$/i))) {
+      const args = {obligation: m[1], owner: m[2]}; if (m[3]) args.due = m[3];
+      return say((await callTool("assign_obligation", args)).speech);
+    }
+    if ((m = t.match(/^(?:mark\s+)?(.+?)\s+(?:is\s+)?(?:done|finished|complete[d]?)$/i)) || (m = t.match(/^(?:[A-Z][a-z]+|I)\s+(?:sent|finished|did|paid|booked|shared|drafted|filed|signed|completed)\s+(.+)$/i))) {
+      return say((await callTool("complete_obligation", {obligation: m[1]})).speech);
+    }
+    if ((m = t.match(/^(?:remind me (?:that )?)?I (?:promised|owe|need to|committed to|have to)\s+(.+)$/i))) {
+      let task = m[1], due = null, dm = task.match(DUE); if (dm) { due = dm[1]; task = task.slice(0, dm.index).trim(); }
+      if (!/^(send|give|share|review|draft|write|file|submit|sign|update|fix|schedule|book|call|email|follow|check|confirm|prepare|finish|pay|get)\b/i.test(task)) task = "Send " + task;
+      const args = {task, owner: ME}; if (due) args.due = due;
+      return say((await callTool("add_obligation", args)).speech);
+    }
+    if ((m = t.match(/\b(?:what does|what's on|what is on|what do(?:es)?)\s+([A-Z][a-z]+|I)(?:'s)?\s*(?:owe|plate|have)?/i)) || (m = t.match(/\b([A-Z][a-z]+)'s (?:list|obligations|plate)/))) {
+      const who = /^I$/i.test(m[1]) ? ME : cleanName(m[1]);
+      return say((await callTool("list_obligations", {owner: who})).speech);
+    }
+    if (/\b(due|this week|soon|upcoming)\b/i.test(t)) return say((await callTool("list_obligations", {due_within_days: 7})).speech);
+    if (/\b(list|everything|all|open)\b/i.test(t)) return say((await callTool("list_obligations", {})).speech);
+    return say("Try asking what could go wrong, what someone owes, or to wrap up the meeting.");
+  } catch (e) { add("tool", "error: " + esc(e.message)); }
+}
+
+// --- sample meeting: plays a scripted transcript so the demo is reproducible ---
+async function playMeeting(){
+  const r = await fetch("/api/sample-transcript"); meetingText = await r.text();
+  add("tool", "▶ meeting in progress · Obligate is listening");
+  for (const line of meetingText.split("\n").filter(Boolean)) {
+    const i = line.indexOf(":"); add("meet", `<b>${esc(line.slice(0,i))}</b>${esc(line.slice(i))}`);
+    await new Promise(r => setTimeout(r, 900));
+  }
+  add("tool", "■ meeting ended");
+}
+
+// --- speech recognition ---
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+if (SR) {
+  rec = new SR(); rec.lang = "en-US"; rec.interimResults = true;
+  rec.onresult = e => { const r = e.results[e.results.length-1]; $("#hint").textContent = r[0].transcript; if (r.isFinal) handle(r[0].transcript); };
+  rec.onend = () => { orb.classList.remove("listening"); $("#hint").textContent = "Tap and speak, or type below."; };
+} else { $("#hint").textContent = "Voice input needs Chrome. You can type instead."; }
+orb.onclick = () => { if (!rec) return $("#q").focus(); speechSynthesis.cancel(); orb.classList.add("listening"); $("#hint").textContent = "Listening…"; rec.start(); };
+document.addEventListener("keydown", e => { if (e.code === "Space" && document.activeElement.tagName !== "INPUT") { e.preventDefault(); orb.click(); } });
+$("#f").onsubmit = e => { e.preventDefault(); const v = $("#q").value; $("#q").value = ""; handle(v); };
+document.querySelectorAll("[data-say]").forEach(b => b.onclick = () => handle(b.dataset.say));
+$("[data-play]").onclick = playMeeting;
+$("[data-reset]").onclick = async () => { await fetch("/api/reset", {method:"POST"}); log.innerHTML = ""; session = null; meetingText = ""; await connect(); };
+connect().catch(e => add("tool", "could not connect: " + esc(e.message)));
+</script>
+</body>
+</html>
