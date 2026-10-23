@@ -2,6 +2,10 @@
 
 **Say it in a meeting, Obligate tracks it.**
 
+**▶ [Watch the demo video (2:42)](https://www.youtube.com/watch?v=V3NQsISCPzo)** · [Devpost project](https://devpost.com/software/obligate) · [Friction log](FRICTION_LOG.md)
+
+![Obligate: Alexa+ voice simulation next to the live obligations dashboard](docs/demo.png)
+
 Obligate is an MCP server for Alexa+ that listens for the promises people make in meetings ("I'll send the contract by Friday", "we need to renew the SOC 2 report") and turns them into tracked obligations with an owner, a deadline and a risk level. It catches the commitments nobody owns, the ones that were asked but never confirmed, and the ones that touch contracts, audits, privacy, security or money, before they turn into costly mistakes.
 
 Built for the **Alexa+ track** of *Build, Ship, Shape: Amazon Developer Hackathon 2026*.
