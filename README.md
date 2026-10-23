@@ -82,7 +82,7 @@ git clone <this repo> && cd obligate
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-OBLIGATE_DEMO=1 python -m obligate.server
+OBLIGATE_DEMO=1 python3 -m obligate.server
 ```
 
 - Dashboard: http://localhost:8000/
