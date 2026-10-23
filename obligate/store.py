@@ -92,7 +92,9 @@ class Store:
     @staticmethod
     def _enrich(row: sqlite3.Row, today: date | None = None) -> dict:
         d = dict(row)
-        today = today or date.today()
+        if today is None:
+            override = os.environ.get("OBLIGATE_TODAY")
+            today = date.fromisoformat(override) if override else date.today()
         due = date.fromisoformat(d["due_date"]) if d["due_date"] else None
         level, reasons, tags = score(d["task"], d["owner"], due, bool(d["hedged"]), d["kind"], today, d["status"])
         d["hedged"] = bool(d["hedged"])
